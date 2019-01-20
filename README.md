@@ -1,4 +1,4 @@
-This repository contains the MovieLens project report in 4 formats:
+This repository contains the MovieLens project report in 5 formats:
 
 - ipynb (recommended for viewing)
 - html
