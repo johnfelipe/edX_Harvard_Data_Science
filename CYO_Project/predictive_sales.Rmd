@@ -1,0 +1,855 @@
+---
+title: 'HarvardX - Data Science Capstone: Win/Loss Analysis Project'
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+```{r setup, include = FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, tidy.opts = list(width.cutoff = 60), width = 60)
+
+```
+
+## 1. Introduction
+
+Let's consider a real life scenario where we play the role of a sales executive at an automotive supply wholesaler and investigate a sales execution issue. 
+
+We have not been converting enough opportunities lately. We want to better **understand our sales pipeline and which deals our sales teams can expect to win or lose** based on data that we’ve pulled out of our CRM database.
+
+We want to find the patterns in sales wins and losses and uncover what can lead to successful sales opportunities and better anticipate performance gaps.
+
+
+## 2. Data
+
+The dataset is a sample provided by IBM in their Watson Analytics community that can be downloaded [here](https://www.ibm.com/communities/analytics/watson-analytics-blog/guide-to-sample-datasets/). The "WA_Fn UseC_ Sales Win Loss.csv" file is a dataset that covers sales activities for, amongst others, carrying out a win/loss analysis, to generate the **insights to increase revenues and grow the business**.
+
+#### Dataset Features
+
+| Column name                             | Description                                                                   |
+|:----------------------------------------|:------------------------------------------------------------------------------|
+| Client Size by Employee Count           | Employee sized by number of clients: <br> • 1: < 1K <br> • 2: [1K, 5K] <br> • 3: [5K, 10K] <br> • 4: [10K, 30K] <br> • 5: ≥ 30K                                                                            |
+| Client Size by Revenue                  | Client size based on annual revenue in USD: <br> • 1: < 1M <br> • 2: [1M, 10M] <br> • 3: [10M, 50M] <br> • 4: [50M, 100M] <br> • 5: ≥ 100M                                                               |
+| Competitor Type                         | An indicator if a competitor has been identified: <br> Known, Unknown, None   | 
+| Deal Size by Category                   | Categorical grouping of the opportunity amount (OpportunityAmountUSD) <br> • 1: < 10K <br> • 2: [10K, 25K] <br> • 3: [25K, 50K] <br> • 4: [50K, 100K] <br> • 5: [100K, 250K] <br> • 6: [250K, 500K] <br> • 7: ≥ 500K                                                                                                                 |
+| Opportunity Number                      | A unique generated number assigned to the opportunity                         |
+| Opportunity Results                     | A closed opportunity is won or loss. Values could be Win/Loss                 |
+| Region                                  | Name of the Region: <br> Mid-Atlantic, Midwest, Northeast, Northwest, Pacific, Southeast, Southwest                                                                                                      |
+| Route to Market                         | The opportunities’ route to market: <br> Fields Sales, Other, Reseller, Telecoverage, Telesales                                                                                                   |
+| Supplies Group                          | Reporting supplies group: <br> Car Accessories, Car Electronics, Performance & Non-auto, Tires & Wheels                                                                                                  |
+| Supplies SubGroup                       | Reporting supplies subgroup: <br> Batteries & Accessories, Car Electronics, Exterior Accessories, Garage & Car Care, Interior Accessories, <br> Motorcycle Parts, Performance Parts, Replacement Parts, Shelters & RV, Tires & Wheels, Towing & Hitches                                                                           |
+| Opportunity Amount (USD)                | Sum of line item revenue estimates by sales representative in American currency |
+| Sales Stage Change Count                | Actually a count of number of times an opportunity changes sales stages (back and forwards)                                                                                                             |
+| Elapsed Days In Sales Stage             | The number of days between the change in sales stages. The counter is reset for each new sales stage                                                                                                      |
+| Ratio Days Identified To Total Days     | Ratio of total days the opportunity has spent in sales stage: Identified/Validating over total days in sales process                                                                    |
+| Ratio Days Qualified To Total Days      | Ratio of total days the opportunity has been spent in sales stage: <br> Qualified/Gaining Agreement over total days in sales process                                                              |
+| Ratio Days Validated To Total Days      | Ratio of total days the Opportunity has presence in sales stage: <br> Validated/Qualifying over total days in sales process                                                                     |
+| Revenue From Client Past Two Years      | Revenue identified from this client in past two years <br> • 0: 0 <br> • 1: [1K, 50K] <br> • 2: [50K, 400K] <br> • 3: [400K, 1.5M] <br> • 4: ≥ 1.5M                                                        |
+| Total Days Identified Through Closing   | Total days the opportunity has spent in Sales Stages <br> from Identified/Validating to Gained Agreement/closing                                                                         |
+| Total Days Identified Through Qualified | Total days the opportunity has spent in CRM Stages <br> from Identified/Validating to Qualified/Gaining Agreement                                                                      |
+
+
+## 3. Methodology
+
+### 3.1 Exploratory Data Analysis
+
+In this section, we explore the data in two main steps:
+
+* **Initial exploration**
+
+    - Dataset structure, variable formats,
+    
+    - Missing values,
+    
+    - Duplicated information,
+    
+    - Correlation analysis.
+
+* **In-depth exploration for first insights**
+
+
+### 3.2 Create subsets for the project
+
+We want to create two subsets as follows:
+
+* sales dataset, which contains 90% of our sample dataset, to analyze our sales wins and losses.
+
+* validation dataset, which is the remaining 10%, for the purpose of validation of our predictive model. 
+
+
+### 3.3 Predictive Model
+
+In this section, we will go through a couple of Machine Learning methods to build a model to support our decisions.
+
+
+## 4. Results and Discussion 
+
+### 4.1 Exploratory Data Analysis
+
+#### Initial data exploration
+
+```{r, message = FALSE, warning = FALSE}
+
+# --- LIBRARIES ----------------------------------------------------------------
+
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(gridExtra)) install.packages("gridExtra", repos = "http://cran.r-project.org")
+if(!require(rpart)) install.packages("rpart", repos = "http://cran.r-project.org")
+if(!require(rpart.plot)) install.packages("rpart.plot", repos = "http://cran.r-project.org")
+if(!require(randomForest)) install.packages("randomForest", repos = "http://cran.r-project.org")
+if(!require(rpart)) install.packages("rpart", repos = "http://cran.r-project.org")
+if(!require(rpart.plot)) install.packages("rpart.plot", repos = "http://cran.r-project.org")
+if(!require(randomForest)) install.packages("randomForest", repos = "http://cran.r-project.org")
+
+```
+
+```{r}
+
+# --- ORIGINAL DATASET ---------------------------------------------------------
+
+# Read csv file from IBM Watson Analytics sample datasets
+# https://www.ibm.com/communities/analytics/watson-analytics-blog/guide-to-sample-datasets/
+
+crm <- read.csv(url("https://community.watsonanalytics.com/wp-content/uploads/2015/04/WA_Fn-UseC_-Sales-Win-Loss.csv?cm_mc_uid=32200886596915345345263&cm_mc_sid_50200000=88110211548169944710&cm_mc_sid_52640000=47085071548169944717"), 
+              header = TRUE)
+
+```
+
+```{r}
+
+# --- INITIAL EXPLORATION OF THE DATASET ---------------------------------------
+
+# Let's have a look at our crm dataset
+head(crm)
+
+```
+
+```{r}
+
+# Let's see the structure of our dataset and the types of variables that it contains
+str(crm)
+
+```
+
+```{r}
+
+# We note that some features have the wrong type as integer instead of factor
+
+# Let's convert them to the right type
+cols <- c("Client.Size.By.Employee.Count", "Client.Size.By.Revenue", "Deal.Size.Category", "Revenue.From.Client.Past.Two.Years")
+crm[, cols] <- data.frame(apply(crm[cols], 2, as.factor))
+
+# Let's check again the types of our variables 
+str(crm)
+
+```
+
+```{r}
+
+# Let's check if our dataset has missing values
+cat("Do we have any missing value?", any(is.na(crm)),"\n")
+
+# Let's check if our dataset has duplicated rows
+cat("We have", n_distinct(crm$Opportunity.Number), "unique opportunity numbers out of a total of", nrow(crm), 
+    "so the percentage of duplicated rows is:", (1-n_distinct(crm$Opportunity.Number)/nrow(crm))*100)
+
+```
+
+```{r}
+
+# So we have 0.25% of our dataset that is duplications. Let's see what rows are duplicated and how they are duplicated.
+n_occur <- data.frame(table(crm$Opportunity.Number))
+head(crm[crm$Opportunity.Number %in% n_occur$Var1[n_occur$Freq > 1],], 10)
+
+```
+
+```{r}
+
+# Some duplications are simple row duplication but some others look like an update of the opportunity (mostly the USD amount) in a new row.
+# As we don't have any date information to identify the update, we will just delete the duplications. 
+crm <- crm[!duplicated(crm["Opportunity.Number"]), ]
+
+# Let's check if our new dataset has missing values
+cat("Do we have any missing value?", any(is.na(crm)),"\n")
+
+# Let's check if our new dataset has duplicated rows
+cat("We have", n_distinct(crm$Opportunity.Number), "unique opportunity numbers out of a total of", nrow(crm), 
+    "so the percentage of duplicated rows is:", (1-n_distinct(crm$Opportunity.Number)/nrow(crm))*100)
+
+```
+
+```{r}
+
+# Correlation for numeric features
+cor(crm[,unlist(lapply(crm,is.numeric))])
+
+```
+
+Let's have a look at the variables that are significantly correlated (say correlation coefficient either greater than 0.8 or less than -0.8). 
+
+We note that `Total.Days.Identified.Through.Qualified` and `Total.Days.Identified.Through.Closing` are strongly correlated (0.98), which is not surprising as these two variables are related in such that an opportunity stay in the pipeline from identification, through qualification and validation, to closing. 
+
+None of the other numeric features are strongly correlated.
+
+```{r}
+
+# Correlation between "Total Days Identified Through Qualified" and "Total Days Identified Through Closing"
+
+crm %>%
+    select(Total.Days.Identified.Through.Closing, Total.Days.Identified.Through.Qualified) %>%
+    
+    ggplot(aes(x = Total.Days.Identified.Through.Qualified, y = Total.Days.Identified.Through.Closing)) +
+    geom_point() + 
+    geom_smooth(method = "lm") +
+    labs(subtitle = "Total Days Through Qualified vs Total Days Through Closing", x = "Total Days Identified Through Qualified", y = "Total Days Identified Through Closing")
+
+```
+
+```{r}
+
+# Chi-squared test for factor/categorical features
+
+ssg = chisq.test(crm$Supplies.Subgroup, crm$Supplies.Group, simulate.p.value = TRUE)$p.value
+sr = chisq.test(crm$Supplies.Subgroup, crm$Region)$p.value
+srm = chisq.test(crm$Supplies.Subgroup, crm$Route.To.Market, simulate.p.value = TRUE)$p.value
+scsr = chisq.test(crm$Supplies.Subgroup, crm$Client.Size.By.Revenue)$p.value
+scse = chisq.test(crm$Supplies.Subgroup, crm$Client.Size.By.Employee.Count)$p.value
+sy = chisq.test(crm$Supplies.Subgroup, crm$Revenue.From.Client.Past.Two.Years, simulate.p.value = TRUE)$p.value
+sc = chisq.test(crm$Supplies.Subgroup, crm$Competitor.Type)$p.value
+sd = chisq.test(crm$Supplies.Subgroup, crm$Deal.Size.Category)$p.value
+
+gr = chisq.test(crm$Supplies.Group, crm$Region)$p.value
+grm = chisq.test(crm$Supplies.Group, crm$Route.To.Market, simulate.p.value = TRUE)$p.value
+gcsr = chisq.test(crm$Supplies.Group, crm$Client.Size.By.Revenue)$p.value
+gcse = chisq.test(crm$Supplies.Group, crm$Client.Size.By.Employee.Count)$p.value
+gy = chisq.test(crm$Supplies.Group, crm$Revenue.From.Client.Past.Two.Years, simulate.p.value = TRUE)$p.value
+gc = chisq.test(crm$Supplies.Group, crm$Competitor.Type)$p.value
+gd = chisq.test(crm$Supplies.Group, crm$Deal.Size.Category)$p.value
+
+rrm = chisq.test(crm$Region, crm$Route.To.Market)$p.value
+rcsr = chisq.test(crm$Region, crm$Client.Size.By.Revenue)$p.value
+rcse = chisq.test(crm$Region, crm$Client.Size.By.Employee.Count)$p.value
+ry = chisq.test(crm$Region, crm$Revenue.From.Client.Past.Two.Years)$p.value
+rc = chisq.test(crm$Region, crm$Competitor.Type)$p.value
+rd = chisq.test(crm$Region, crm$Deal.Size.Category)$p.value
+
+mcsr = chisq.test(crm$Route.To.Market, crm$Client.Size.By.Revenue)$p.value
+mcse = chisq.test(crm$Route.To.Market, crm$Client.Size.By.Employee.Count)$p.value
+my = chisq.test(crm$Route.To.Market, crm$Revenue.From.Client.Past.Two.Years)$p.value
+mc = chisq.test(crm$Route.To.Market, crm$Competitor.Type)$p.value
+md = chisq.test(crm$Route.To.Market, crm$Deal.Size.Category)$p.value
+
+ccse = chisq.test(crm$Client.Size.By.Revenue, crm$Client.Size.By.Employee.Count)$p.value
+cy = chisq.test(crm$Client.Size.By.Revenue, crm$Revenue.From.Client.Past.Two.Years)$p.value
+cc = chisq.test(crm$Client.Size.By.Revenue, crm$Competitor.Type)$p.value
+cd = chisq.test(crm$Client.Size.By.Revenue, crm$Deal.Size.Category)$p.value
+
+ey = chisq.test(crm$Client.Size.By.Employee.Count, crm$Revenue.From.Client.Past.Two.Years)$p.value
+ec = chisq.test(crm$Client.Size.By.Employee.Count, crm$Competitor.Type)$p.value
+ed = chisq.test(crm$Client.Size.By.Employee.Count, crm$Deal.Size.Category)$p.value
+
+yc = chisq.test(crm$Revenue.From.Client.Past.Two.Years, crm$Competitor.Type)$p.value
+yd = chisq.test(crm$Revenue.From.Client.Past.Two.Years, crm$Deal.Size.Category)$p.value
+
+td = chisq.test(crm$Competitor.Type, crm$Deal.Size.Category)$p.value
+
+cormatrix = matrix(c(0, ssg, sr, srm, scsr, scse, sy, sc, sd,
+                     ssg, 0, gr, grm, gcsr, gcse, gy, gc, gd,
+                     sr, gr, 0, rrm, rcsr, rcse, ry, rc, rd, 
+                     srm, grm, rrm, 0, mcsr, mcse, my, mc, md,
+                     scsr, gcsr, rcsr, mcsr, 0, ccse, cy, cc, cd,
+                     scse, gcse, rcse, mcse, ccse, 0, ey, ec, ed,
+                     sy, gy, ry, my, cy, ey, 0, yc, yd,
+                     sc, gc, rc, mc, cc, ec, yc, 0, td,
+                     sd, gd, rd, md, cd, ed, yd, td, 0), 
+                   9, 9, byrow = TRUE)
+
+row.names(cormatrix) = colnames(cormatrix) = c("Supplies.Subgroup", "Supplies.Group", "Region", "Route.To.Market", "Client.Size.By.Revenue",
+                                              "Client.Size.By.Employee.Count", "Revenue.From.Client.Past.Two.Years", "Competitor.Type", "Deal.Size.Category")
+cormatrix
+
+```
+
+Null hypothesis assumes that there is no association between two variables.
+
+Here, we have all p-values < 0.05, so we reject the null hypothesis and conclude that all the variables are dependent to each other.  
+
+#### In-depth data exploration for first insights 
+
+```{r}
+
+# Let's see the frequencies for our variable of interest, the win/loss opportunities
+table(crm$Opportunity.Result) 
+
+```
+
+```{r}
+
+# Let's see the rates of win/loss opportunities
+round(table(crm$Opportunity.Result)/nrow(crm), 2) 
+
+```
+
+The success rate is quite low, **only 23% of our opportunities are converted into revenues**. 
+
+Now, as sales people, we rather focus on revenues and want to first check how we perform:
+
+- across areas, 
+
+- by deal sizes,
+
+- across sales channels.
+
+#### *Deal conversions accross areas*
+
+How do the `Opportunity.Amount` and `Opportunity.Result` compare by `Region`?
+
+```{r}
+
+cat("The maximum opportunity amount is", max(crm$Opportunity.Amount.USD)/1000, "thousand USD, the average is", 
+    round(mean(crm$Opportunity.Amount.USD)), "thousand USD, and the median is",
+    median(crm$Opportunity.Amount.USD), "thousand USD.")
+
+```
+
+```{r}
+
+# --- OPPORTUNITY AMOUNTS AND OPPORTUNITY RESULTS BY REGION ---------------------------------------------------------------------
+
+# Opportunity amounts by region
+par <- ggplot(data = crm, aes(x = Region, y = Opportunity.Amount.USD/1000)) +
+            geom_bar(stat = "identity", fill = "#D55E00") +
+            theme(axis.text.x = element_text()) +
+            labs(subtitle = "Opportunity Amounts across Regions", x = "", y = "Value in kUSD")
+
+
+# Opportunity results by region
+prr <- ggplot(data = crm, aes(Region, fill = Opportunity.Result)) +
+            geom_bar(aes(y = (..count..)/sum(..count..)), alpha = 0.9, position = "dodge") +
+            scale_fill_manual(name = "Opportunity Result", values = c("#CC6666", "#0072B2")) +
+            scale_y_continuous(labels = scales::percent) +
+            theme(axis.text.x = element_text()) +
+            labs(subtitle = "Opportunities Results across Regions", x = "", y = "Total Opportunities")
+
+# Success rates by region
+psr <- crm %>%
+        group_by(Region, Opportunity.Result) %>%
+        summarise(count = n()) %>%
+        spread(key = "Opportunity.Result", value = "count", convert = TRUE) %>%
+        mutate(success_rate = Won / (Won + Loss)) %>%
+
+        ggplot(aes(x = Region, y = success_rate)) + 
+            geom_bar(stat = "identity", fill = "#009E73") +
+            geom_text(aes(label = round(success_rate*100, 1)), position = position_stack(vjust = 0.5)) +
+            scale_y_continuous(labels = scales::percent) +
+            theme(axis.text.x = element_text()) +
+            labs(subtitle = "Success Rates by Region", x = "", y = "Success Rate")
+
+grid.arrange(par, prr, psr, layout_matrix = rbind(c(1, 1, 1), c(2, 2, 2), c(3, 3, 3)))
+
+```
+
+Midwest and Pacific are our biggest areas in terms of opportunity amounts. 
+
+**Our deal conversion rates across all regions are similarly low, so there is surely room for improving our sales efficiency!** 
+
+```{r}
+
+# --- OPPORTUNITY RESULTS BASED ON OPPORTUNITY AMOUNTS BY REGION ----------------------------------------------------------------
+
+# Let's see how the opportunity amount influences our deal outcome
+ggplot(data = crm, aes(x = Region, y = Opportunity.Amount.USD/1000, fill = Opportunity.Result)) +
+    geom_boxplot() +
+    scale_fill_manual(name = "Opportunity Result", values = c("#CC6666", "#0072B2")) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+    labs(subtitle = "Opportunities Results based on Opportunity Amounts accross Regions", x = "", y = "Value in kUSD")
+
+```
+
+The majority of the opportunities are skewed on the low amounts. Interestingly, we note that the medians of won opportunities are with deals lower than 25 kUSD!  
+
+Let's see further how the `Opportunity.Result` compare by `Deal.Size.Category`.
+
+#### *Win / Loss opportunities by deal size categories*
+
+How do the `Opportunity.Result` compare by `Deal.Size.Category`?
+
+```{r}
+
+# --- OPPORTUNITY RESULTS BY DEAL SIZE CATEGORY ---------------------------------------------------------------------------------
+
+# Opportunity results by deal size category 
+prd <- ggplot(data = crm, aes(Deal.Size.Category, fill = Opportunity.Result)) +
+        geom_bar(aes(y = (..count..)/sum(..count..)), alpha = 0.9, position = "dodge") +
+        scale_fill_manual(name = "Opportunity Result", values = c("#CC6666", "#0072B2")) +
+        scale_y_continuous(labels = scales::percent) +
+        scale_x_discrete(labels = c("1" = "< 10 kUSD", "2" = "[10 kUDS, 25 kUSD]", "3" = "[25 kUDS, 50 kUSD]",
+                                    "4" = "[50 kUDS, 100 kUSD]", "5" = "[100 kUDS, 250 kUSD]", 
+                                    "6" = "[250 kUDS, 500 kUSD]", "7" = "> 500 kUSD")) +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+        labs(subtitle = "Opportunity Results by Deal Size Category", x = "", y = "Total Opportunities")
+
+# Success rates by deal size category
+psd <- crm %>%
+        group_by(Deal.Size.Category, Opportunity.Result) %>%
+        summarise(count = n()) %>%
+        spread(key = "Opportunity.Result", value = "count", convert = TRUE) %>%
+        mutate(success_rate = Won / (Won + Loss)) %>%
+
+        ggplot(aes(x = Deal.Size.Category, y = success_rate)) + 
+            geom_bar(stat = "identity", fill = "#009E73") +
+            geom_text(aes(label = round(success_rate*100, 1)), position = position_stack(vjust = 0.5)) +
+            scale_y_continuous(labels = scales::percent) +
+            scale_x_discrete(labels = c("1" = "< 10 kUSD", "2" = "[10 kUDS, 25 kUSD]", "3" = "[25 kUDS, 50 kUSD]",
+                                        "4" = "[50 kUDS, 100 kUSD]", "5" = "[100 kUDS, 250 kUSD]", 
+                                        "6" = "[250 kUDS, 500 kUSD]", "7" = "> 500 kUSD")) +
+            theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+            labs(subtitle = "Success Rates by Deal Size Category", x = "", y = "Success Rate")
+
+grid.arrange(prd, psd, layout_matrix = rbind(c(1, 1), c(2, 2)))
+
+```
+
+**We won more opportunities for deal size < 10 kUSD** and our success rate decreases as the deal size increases until 
+a level of 100 to 250 kUSD. 
+
+#### *Opportunity amount accross regions and sales channels*
+
+How do the `Opportunity.Amount` compare by `Region` and `Route.To.Market`?
+
+```{r}
+
+# --- OPPORTUNITY AMOUNTS BY REGION AND ROUTE TO MARKET -------------------------------------------------------------------------
+
+# Routes to Market by Region
+ggplot(data = crm, aes(x = Region, y = Opportunity.Amount.USD/1000, fill = Route.To.Market), alpha = 0.9) + 
+    geom_bar(stat = "identity", position = "stack") +
+    scale_fill_discrete(name = "Route To Market") +
+    labs(subtitle = "Opportunity Amounts across Routes to Market and by Region", x = "", y = "Value in kUSD")
+
+```
+
+Field Sales and Reseller are our two main sales channels accross regions, but how do these sales channels perform?
+
+#### *Win / Loss opportunities accross sales channels and by deal size category*
+
+How do the `Opportunity.Result` compare by `Route.To.Market` and `Deal.Size.Category`?
+
+```{r}
+
+# --- OPPORTUNITY RESULTS BY ROUTE TO MARKET AND DEAL SIZE CATEGORY -------------------------------------------------------------
+
+# Opportunity results by route to market and deal size category 
+
+labels <- c("1" = "< 10 kUSD", "2" = "[10 kUDS, 25 kUSD]", "3" = "[25 kUDS, 50 kUSD]", "4" = "[50 kUDS, 100 kUSD]", 
+            "5" = "[100 kUDS, 250 kUSD]", "6" = "[250 kUDS, 500 kUSD]", "7" = "> 500 kUSD")
+
+ggplot(data = crm, aes(Route.To.Market, fill = Opportunity.Result)) +
+        geom_bar(aes(y = (..count..)/sum(..count..)), alpha = 0.9, position = "dodge") +
+        scale_fill_manual(name = "Opportunity Result", values = c("#CC6666", "#0072B2")) +
+        scale_y_continuous(labels = scales::percent) +
+        facet_wrap(~Deal.Size.Category, labeller = labeller(Deal.Size.Category = labels)) + 
+        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+        labs(subtitle = "Opportunity Results by Route to Market and Deal Size Category", x = "", y = "Percentage of Total Results")
+
+```
+
+```{r}
+
+# Success rates by route to market and deal size category
+
+crm %>%
+    group_by(Route.To.Market, Deal.Size.Category, Opportunity.Result) %>%
+    summarise(count = n()) %>%
+    spread(key = "Opportunity.Result", value = "count", fill = 0, convert = TRUE) %>%
+    mutate(success_rate = Won / (Won + Loss)) %>%
+
+    ggplot(aes(x = Route.To.Market, y = success_rate)) + 
+        geom_bar(stat = "identity",  fill = "#009E73") +
+        geom_text(aes(label = round(success_rate*100, 1)), position = position_stack(vjust = 0.5)) +
+        scale_y_continuous(labels = scales::percent) +
+        facet_wrap(~Deal.Size.Category, labeller = labeller(Deal.Size.Category = labels)) + 
+        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+        labs(subtitle = "Success Rates by Route To Market and by Deal Size Category", x = "", y = "Success Rate")
+
+```
+
+There is no clear trend of successful routes to market across deal sizes. 
+
+- Field Sales performance trend follows the general trend accross the deal size categories as seen before. So, we note that slight rebound for opportunities above 250 kUSD. Field Sales could be refocused on bigger deals to increase efficiency.
+
+- Reseller channel performs well and best for all deals > 50 kUSD. We should further develop and support our resellers network.
+
+- Other routes to market efficiency could be somewhat compared to Field Sales.
+
+- Telecoverage performance is poor, it might not be relevant for our business.
+
+- Telesales is the best channel for deals < 10 kUSD.
+
+Based on this finding, we may consider shifting our sales resources as:
+
+- Telesales for opportunities ≤ 10 kUSD,
+
+- Field Sales for opportunities > 250 kUSD,
+
+- Reseller for all opportunities,
+
+- Other for all opportunities,
+
+- Telecoverage should be discontinued.
+
+#### Understanding what drives our sales
+
+With a simple managerial approach, looking at a few variables (`Opportunity.Amount`, `Region`, `Deal.Size.Category` and `Route.To.Market`), we have not been able to uncover the patterns that allow us to determine the successful sales profiles. The best performance we could achieve was a modest 40% of deals conversion with Telesales for opportunities < 10 kUSD.   
+
+**We want to understand what drives our sales, which deals our sales team can expect to win or loose.** In other terms, we want to understand the **why** behind what’s happening. 
+
+With such a large dataset including 19 variables (so as many as 18 possible sales drivers), we can't manually explore each and every variable, not even talking about possible combinations. That is where we bring in **Machine Learning approaches to help us to identify the most significant variables and predict the opportunity results**.
+
+#### Methods to perform a dimension reduction of our dataset so that we can identify the most significant variables
+
+Two very common methods for identifying significant variables are **Decision Tree** and **Random Forests**.
+
+- The **Decision Tree** best feature for analytics is that it is very **easy to interpret** and **results are actionable**! 
+
+- **Random Forests** improve the robustness of our predictions as they aggregate many Decision Trees.
+
+
+### 4.2 Create subsets for the project
+
+```{r}
+
+# --- CREATE DATASETS FOR THE PROJECT -------------------------------------------------------------------------------------------
+
+# Sales set is 90% of the crm data and Validation set is the remaining 10%
+set.seed(1)
+test_index <- createDataPartition(y = crm$Opportunity.Result, times = 1, p = 0.1, list = FALSE)
+sales <- crm[-test_index,]
+validation <- crm[test_index,]
+
+```
+
+
+### 4.3 Predictive Models
+
+```{r}
+
+# --- SPLIT TRAIN/TEST SETS -----------------------------------------------------------------------------------------------------
+
+set.seed(699)
+test_index <- createDataPartition(y = sales$Opportunity.Result, times = 1, p = 0.2, list = FALSE)
+train_set <- sales[-test_index,]
+test_set <- sales[test_index,]
+
+```
+
+#### Decision Tree
+
+```{r}
+
+# --- DECISION TREE WITH RPART PACKAGE ------------------------------------------------------------------------------------------
+
+library(rpart)
+library(rpart.plot)
+
+# Fitting decision tree (rpart package) to the train set
+# Note that we remove the Opportunity Number as it cannot be an actual cause of our 0pportunity Result
+rpa_tree_fit <- rpart(Opportunity.Result ~ . -Opportunity.Number, data = train_set, method = "class") 
+
+# Display the results 
+printcp(rpa_tree_fit)
+
+```
+
+```{r}
+
+# Tree visualization
+rpart.plot(rpa_tree_fit, extra = 4)
+
+```
+
+```{r}
+
+# Detailed summary of splits
+summary(rpa_tree_fit)
+
+```
+
+```{r}
+
+# Predicting the test set results
+rpa_tree_pred <- predict(rpa_tree_fit, newdata = test_set[-7], type = "class") # remove "Opportunity Result" for prediction
+
+# Confusion matrix
+confusionMatrix(rpa_tree_pred, test_set$Opportunity.Result)
+
+```
+
+We have achieved a decent overall accuracy of 84% with a negative predictive value (the proportion of predicted won opportunities which are real won deals) of 69%.
+
+More importantly, the Decision Tree helped us to understand not only the relationships and associations between features but also the decision rules to generate that tree. 
+
+So the feature of first importance is `Revenue.From.Client.Past.Two.Years`, i.e. the business that we've had with that Customer during the past two years, then the second feature is `Total.Days.Identified.Through.Qualified`, i.e. the number of days to qualify an opportunity from its identification. We may note that `Total.Days.Identified.Through.Closing` can be used as a second feature too. These two variables are strongly correlated as we have seen before and basically bear the same information. The third significant feature is `Sales.Stage.Change.Count`, i.e. the number of times an opportunity changes sales stages (back and forwards) in the sales pipeline. 
+
+**We will focus on two or three features only as we want to keep our insights interpretable and above all actionable**.
+
+#### Random Forest
+
+```{r}
+
+# --- RANDOM FOREST WITH RANDOMFOREST PACKAGE ----------------------------------------------------------------------------------
+
+library(randomForest)
+
+# Fitting random forest to the train set
+# Note that we remove the Opportunity Number as it cannot be an actual cause of our 0pportunity Result
+forest_fit = randomForest(Opportunity.Result ~ .-Opportunity.Number, data = train_set) 
+
+# Choosing the number of trees
+plot(forest_fit)
+
+```
+
+The green, black and red lines represent error rate for Loss, overall and Won, respectively. 
+The overall error rate converges (no further decrease) to around 12%, so the default setting of 500 trees in the randomForest function is fine.
+
+```{r}
+
+# Variables of importance
+apply(importance(forest_fit), 2, sort, decreasing = TRUE)
+
+```
+
+```{r}
+
+# Predicting the test set results
+forest_pred = predict(forest_fit, newdata = test_set[-7]) # remove "Opportunity Result" for prediction
+
+# Confusion matrix
+confusionMatrix(forest_pred, test_set$Opportunity.Result)
+
+```
+
+With a Random Forest model, we have improved our overall accuracy to 88% with a negative predictive value of 76%. 
+
+Our top 3 predictors are:
+
+- `Revenue.From.Client.Past.Two.Years`, 
+
+- `Total.Days.Identified.Through.Qualified`, 
+
+- `Elapsed.Days.In.Sales.Stage`, i.e. the number of days between the change in sales stages (the counter is reset for each new sales stage).
+
+Note: The two first predictors are the same as given by the Decision Tree.
+
+### Validation
+
+```{r}
+
+# --- VALIDATION OF RANDOM FOREST MODEL -----------------------------------------------------------------------------------------
+
+# Fitting random forest to the sales set
+val_forest_fit = randomForest(Opportunity.Result ~ .-Opportunity.Number, data = sales)
+
+# Variables of importance
+apply(importance(val_forest_fit), 2, sort, decreasing = TRUE)
+
+```
+
+```{r}
+
+# Predicting the validation set results
+val_forest_pred = predict(val_forest_fit, newdata = validation[, -7]) # remove "Opportunity Result" for prediction
+
+# Confusion matrix
+confusionMatrix(val_forest_pred, validation$Opportunity.Result)
+
+```
+
+So we valid an **overall accuracy of 88% with a negative predictive value of 77%**.
+
+Note that **we didn't try to optimize accuracy by tuning our models, as our main goal was to reduce the dimension of our dataset and identify the most significant variables with their predictive strengths**. 
+
+Let's see the insights we can gain from our predictive model.
+
+
+### Insights With One Predictor
+
+We use the most significant predictor identified by our models, i.e. `Revenue.From.Client.Past.Two.Years`.
+
+```{r}
+
+# --- OPPORTUNITY RESULTS BY REVENUE FROM CLIENT PAST 2 YEARS -------------------------------------------------------------------
+
+# Opportunity results by revenue from client past 2 years 
+prc <- ggplot(data = crm, aes(Revenue.From.Client.Past.Two.Years, fill = Opportunity.Result)) +
+        geom_bar(aes(y = (..count..)), alpha = 0.9, position = "dodge") +
+        scale_fill_manual(name = "Opportunity Result", values = c("#CC6666", "#0072B2")) +
+        scale_x_discrete(labels = c("0" = "No business", "1" = "[1 kUSD, 50 kUSD]", "2" = "[50 kUDS, 400 kUSD]",
+                                    "3" = "[400 kUDS, 1.5 mUSD]", "4" = "> 1.5 mUSD")) +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+        labs(subtitle = "Opportunity Results by Revenue from Client past 2 Years", x = "", y = "Number of Opportunities")
+
+
+# Success rates by revenue from client past 2 years 
+psc <- crm %>%
+        group_by(Revenue.From.Client.Past.Two.Years, Opportunity.Result) %>%
+        summarise(count = n()) %>%
+        spread(key = "Opportunity.Result", value = "count", convert = TRUE) %>%
+        mutate(success_rate = Won / (Won + Loss)) %>%
+
+        ggplot(aes(x = Revenue.From.Client.Past.Two.Years, y = success_rate)) +
+            geom_bar(stat = "identity", fill = "#009E73") +
+            geom_text(aes(label = round(success_rate*100, 1)), position = position_stack(vjust = 0.5)) +
+            scale_y_continuous(labels = scales::percent) +
+            scale_x_discrete(labels = c("0" = "No business", "1" = "[1 kUSD, 50 kUSD]", "2" = "[50 kUDS, 400 kUSD]",
+                                        "3" = "[400 kUDS, 1.5 mUSD]", "4" = "> 1.5 mUSD")) +
+            theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+            labs(subtitle = "Success Rates by Revenue from Client past 2 Years", x = "Categories of Revenue from Client Past 2 Years", y = "Success Rate")
+
+grid.arrange(prc, psc, layout_matrix = rbind(c(1, 1, 1), c(2, 2, 2)))
+
+```
+
+Looking at the Client purchase history, if they have bought from us less than 50,000 USD in the past 2 years, we have an **83% chance to successfully close the deal**.
+
+When it comes to very big opportunities (≥ 1.5 mUSD), we close the deal half the time. On the other end, gaining new customers is a real challenge with a success rate of only 17%.   
+
+### Insights With Two Predictors
+
+We use the two most important predictors identified by our models, i.e. `Revenue.From.Client.Past.Two.Years` and `Total.Days.Identified.Through.Qualified`.
+
+```{r}
+
+# --- OPPORTUNITY RESULTS BY REVENUE FROM CLIENT PAST 2 YEARS AND TOTAL DAYS IDENTIFIED THROUGH QUALIFIED -----------------------
+
+# Opportunity results by past revenues and total days identified through qualified
+ggplot(data = crm, aes(x = Revenue.From.Client.Past.Two.Years, y = Total.Days.Identified.Through.Qualified, fill = Opportunity.Result)) +
+    geom_boxplot() +
+    scale_fill_manual(name = "Opportunity Result", values = c("#CC6666", "#0072B2")) +
+    scale_x_discrete(labels = c("0" = "No business", "1" = "[1 kUSD, 50 kUSD]", "2" = "[50 kUDS, 400 kUSD]",
+                                "3" = "[400 kUDS, 1.5 mUSD]", "4" = "> 1.5 mUSD")) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+    labs(subtitle = "Opportunities based on Total Days Identified Through Qualified and by Revenue From Client Past Two Years ", 
+         x = "Revenue From Client Past Two Years", y = "Total Days Identified Through Qualified")
+
+```
+
+```{r}
+
+# Opportunity results by past revenues and total days identified through qualified
+
+labels_1 <- c("0" = "No business", "1" = "[1 kUSD, 50 kUSD]", "2" = "[50 kUDS, 400 kUSD]", "3" = "[400 kUDS, 1.5 mUSD]", "4" = "> 1.5 mUSD")
+labels_2 <- c("1" = "< 2 days", "2" = "2 to 7 days", "3" = "8 to 15 days", "4" = "16 to 31 days", "5" = "> 1 month")
+
+crm %>% 
+    mutate(Total.Days.Identified.Through.Qualified.Category = cut(crm$Total.Days.Identified.Through.Qualified, c(0, 2, 8, 16, 32, 366),
+                                                                  right = FALSE, labels = c(1:5))) %>%
+
+    ggplot(aes(Revenue.From.Client.Past.Two.Years, fill = Opportunity.Result)) + 
+        geom_bar(aes(y = (..count..)/sum(..count..)), alpha = 0.9, position = "dodge") +
+        scale_fill_manual(name = "Opportunity Result", values = c("#CC6666", "#0072B2")) +
+        scale_y_continuous(labels = scales::percent) +
+        scale_x_discrete(labels = labels_1) +
+        facet_wrap(~Total.Days.Identified.Through.Qualified.Category, labeller = labeller(Total.Days.Identified.Through.Qualified.Category = labels_2)) + 
+        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+        labs(subtitle = "Opportunity Results by Past Revenues and Total Days Identified Through Qualified", 
+         x = "Categories of Revenue from Client Past 2 Years", y = "Percentage of Total Results")
+
+```
+
+```{r}
+
+# Success rates by past revenues and total days identified through qualified
+
+crm %>% 
+    mutate(Total.Days.Identified.Through.Qualified.Category = cut(crm$Total.Days.Identified.Through.Qualified, c(0, 2, 8, 16, 32, 366), 
+                                                                              right = FALSE, labels = c(1:5))) %>%
+    group_by(Revenue.From.Client.Past.Two.Years, Total.Days.Identified.Through.Qualified.Category, Opportunity.Result) %>%
+    summarise(count = n()) %>%
+    spread(key = "Opportunity.Result", value = "count", convert = TRUE) %>%
+    mutate(success_rate = Won / (Won + Loss)) %>%
+
+ggplot(aes(x = Revenue.From.Client.Past.Two.Years, y = success_rate)) +
+    geom_bar(stat = "identity",  fill = "#009E73") +
+    geom_text(aes(label = round(success_rate*100, 1)), position = position_stack(vjust = 0.5)) +
+    scale_y_continuous(labels = scales::percent) +
+    scale_x_discrete(labels = labels_1) +
+    facet_wrap(~Total.Days.Identified.Through.Qualified.Category, labeller = labeller(Total.Days.Identified.Through.Qualified.Category = labels_2)) + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+    labs(subtitle = "Success Rates by Past Revenues and by Total Days Identified Through Qualified", x = "Categories of Revenue from Client Past 2 Years", y = "Success Rate")
+
+```
+
+If we can qualify, within 2 days, an opportunity with customers having purchased for less than 50,000 USD in the last 2 years, we reach **a probability of 93% to successfully close the deal**. 
+
+As a general rule, **the chances of winning a deal decreases as it stays longer in the pipeline**. This could help to formulate thresholds based on how many days a deal is in a pipeline and create alert mechanisms to expedite qualification.  
+
+We also see the **same decrease trend with the increase of purchase history value, for a given qualification time frame**. For example, with an opportunity qualification of 2 to 7 days, we have an 87% chance of successful deal with customers valued at less than 50,000 USD and 60% with those at more than 1.5 mUSD. 
+
+We may also note that **an opportunity is more likely to result in a loss if the client didn’t buy anything from us within the last 2 years** but if we are able to qualify a deal within a week with a new customer, we have more chance of success than our global (over the whole dataset) rate of 23%, as seen in the beginning of our analysis.
+
+### Insights With Three Predictors
+
+We may want to uncover more complex relationships by adding more features, for example with three predictors as `Revenue.From.Client.Past.Two.Years`, `Total.Days.Identified.Through.Qualified` and `Opportunity.Amount.USD`.
+
+Let's say we want to know how we perform with new prospects, with whose we managed to qualify the opportunities, regardless of the USD value, within two weeks.   
+
+```{r}
+
+# --- OPPORTUNITY RESULTS BY REVENUE FROM CLIENT PAST 2 YEARS, TOTAL DAYS IDENTIFIED THROUGH QUALIFIED AND DEAL SIZE CATEGORY ---
+
+# Success rates by past revenues, total days identified through qualified and deal size category
+crm %>%
+    mutate(Total.Days.Identified.Through.Qualified.Category = cut(crm$Total.Days.Identified.Through.Qualified, c(0, 2, 8, 16, 32, 366),
+                                                                  right = FALSE, labels = c(1:5))) %>%
+    group_by(Revenue.From.Client.Past.Two.Years, Total.Days.Identified.Through.Qualified.Category, Deal.Size.Category, Opportunity.Result) %>%
+    summarise(count = n()) %>%
+    spread(key = "Opportunity.Result", value = "count", fill = 0, convert = TRUE) %>%
+    mutate(success_rate = Won / (Won + Loss)) %>%
+    filter(Revenue.From.Client.Past.Two.Years == 0 & Total.Days.Identified.Through.Qualified.Category %in% c(1, 2, 3)) %>%
+
+ggplot(aes(x = Deal.Size.Category, y = success_rate, 
+                      group = interaction(Revenue.From.Client.Past.Two.Years, Total.Days.Identified.Through.Qualified.Category, Deal.Size.Category),
+                      fill = Total.Days.Identified.Through.Qualified.Category), alpha = 0.9) +
+        geom_bar(stat = "identity", position = "dodge") +
+        scale_fill_discrete(name = "Total Days Identified Through Qualified", breaks = c(1, 2, 3), labels = c("< 2 days", "2 to 7 days", "8 to 15 days")) +
+        scale_y_continuous(labels = scales::percent) +
+        scale_x_discrete(labels = c("1" = "< 10 kUSD", "2" = "[10 kUDS, 25 kUSD]", "3" = "[25 kUDS, 50 kUSD]",
+                                    "4" = "[50 kUDS, 100 kUSD]", "5" = "[100 kUDS, 250 kUSD]", 
+                                    "6" = "[250 kUDS, 500 kUSD]", "7" = "> 500 kUSD")) +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0)) +
+        labs(subtitle = "Succesful Deal Conversions with New Prospects by Deal Size Category", x = "Deal Size Category", y = "Success Rate")
+
+```
+
+As we know by now, the chances of successfully closing a deal are higher if we expedite the qualification of the opportunity. Nevertheless, this finding is balanced by the size of the deal. For higher value deals, the impact of qualification speed show a more nuanced picture.     
+
+### More predictors?
+
+At this stage, adding more predictors won't help much but may degrade the interpretability of our findings. Let's keep in mind that we want, above all, **insights that are relevant and actionable!**
+
+
+## 5. Conclusion 
+
+We started with a set of 78,000 rows and 19 variables of data extracted from our CRM and tried to intuitively interpret it with a managerial approach. We tried to understand what drives our sales and why we have not been converting enough deals.
+
+We looked at some variables that could be strong indicators of our sales performance. We looked at sales results by sales amounts, region, deal size category and route to market. We gained some interesting insights but none of them uncovered success patterns. The best performance we could achieve was a modest 42% deals conversion with Telesales route to market and opportunities of less than 10,000 USD.
+
+With such a large dataset, we couldn't realistically explore each and every variable to gain insights about what opportunities we can expect to win. We had to automatize our exploration process to determine the most significant features, which could strongly predict the opportunities results, specifically the won deals.    
+
+We tried Decision Tree and Random Forests models and achieved very good results. Random Forest yields an overall prediction accuracy of 88% and 77% accuracy on won deals. More importantly, Random Forest could drastically reduce the dimension of our dataset and provide the most significant features for predicting the opportunities results. **Random Forest is a great fit for the job that we had in hands!**
+
+So, we could interpret our large initial dataset in terms that our sales managers can understand. 
+
+We uncovered patterns about our opportunities, sales pipeline and what drives our win and losses. We built easy visualizations to help to **understand the profiles of the most likely successful sales opportunities**. For example, we realized that the chances of winning a deal decreases as it stays longer in the pipeline or that an opportunity is more likely to result in a win if the Client has purchased from us up to 50,000 USD.
+
+**These sales profiles are extremely valuable and more importantly, actionable in the hands of our sales teams**. When reviewing their deal pipeline, our managers can anticipate gaps and correct their sales strategies accordingly. They can focus on the right deals and optimize their progression through the pipeline.
+
+We can uncover more complex relationships by adding predictors according to their significance given by our predictive model, nevertheless we should always keep in mind the need of interpretability and at the end of the day, we want our **insights to be actionable by our sales managers!**
+
+**Note: In this project, we covered typical Data Science aspects with data wrangling (data collection, data tidying, feature engineering), data visualization, and machine learning.**
+
+
+### Thank you for reading this report!
